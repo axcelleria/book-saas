@@ -1,0 +1,125 @@
+.meta-info {
+  margin-top: 20px;
+}
+
+.meta-info h5 {
+  font-weight: bold;
+  color: #26a69a;
+}
+
+.divider {
+  margin: 20px 0;
+}
+
+.flow-text {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+/* Add these styles to your existing App.css */
+.input-field {
+  margin-bottom: 20px;
+}
+
+.helper-text {
+  color: #666 !important;
+  font-size: 0.8rem;
+}
+
+.btn {
+  margin-bottom: 20px;
+}
+
+/* Style for radio buttons */
+[type="radio"]:not(:checked)+span, 
+[type="radio"]:checked+span {
+  padding-left: 25px;
+}
+
+[type="radio"]+span:before, 
+[type="radio"]+span:after {
+  top: 0;
+}
+
+/* Book List specific styles */
+.responsive-table {
+  margin-top: 20px;
+}
+
+.active-filters {
+  margin-top: 20px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.chip {
+  margin-right: 5px;
+  margin-bottom: 5px;
+}
+
+.btn-small {
+  padding: 0 10px;
+  height: 24px;
+  line-height: 24px;
+}
+
+.btn-small i {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* Book Detail styles */
+.meta-info {
+  margin-top: 20px;
+}
+
+.divider {
+  margin: 20px 0;
+}
+
+/* Navbar Styles */
+nav {
+  padding: 0 20px;
+  margin-bottom: 20px;
+}
+
+.brand-logo {
+  font-size: 1.5rem !important;
+}
+
+.sidenav {
+  width: 200px;
+}
+
+.sidenav li > a {
+  padding: 0 16px;
+}
+
+/* Page content adjustment for fixed navbar */
+body {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.App {
+  flex: 1;
+}
+
+/* Active link styling */
+nav ul a.active {
+  background-color: rgba(0,0,0,0.1);
+}
+
+.card-content p:not(:last-child) {
+  margin-bottom: 10px;
+}
+
+#user-dropdown {
+  min-width: 200px;
+
+  li {
+    white-space: nowrap;
+  }
+}
