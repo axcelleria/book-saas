@@ -3,7 +3,9 @@ import { useState, useEffect } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import { API_URL } from './config/api';
+
+const API_URL = 'http://localhost:3001/api';
+
 
 const TrackingManager = () => {
   const { user } = useAuth();
@@ -75,7 +77,7 @@ const TrackingManager = () => {
       const response = await fetch(url, {
         method: formData.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData) // Send code as-is
+        body: JSON.stringify(formData)
       });
 
       if (!response.ok) throw new Error('Failed to save tracking code');
@@ -165,15 +167,6 @@ const TrackingManager = () => {
           </div>
 
           <div className="input-field">
-            <div className="helper-text" style={{ marginBottom: '10px' }}>
-              <i className="material-icons tiny">info</i>
-              Make sure to wrap JavaScript code with <code>&lt;script&gt;</code> tags:
-              <pre style={{ background: '#f5f5f5', padding: '10px', marginTop: '5px' }}>
-                &lt;script&gt;
-                  // Your tracking code here
-                &lt;/script&gt;
-              </pre>
-            </div>
             <textarea
               id="code"
               className="materialize-textarea"
@@ -183,7 +176,7 @@ const TrackingManager = () => {
               required
               style={{ fontFamily: 'monospace', minHeight: '150px' }}
             />
-            {/* <label htmlFor="code">Tracking Code</label> */}
+            <label htmlFor="code">Tracking Code</label>
           </div>
 
           <div className="switch">

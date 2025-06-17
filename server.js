@@ -190,6 +190,20 @@ app.get('/api/tracking-codes', async (req, res) => {
     const codes = await query('SELECT * FROM tracking_codes ORDER BY platform');
     res.json(codes);
   } catch (err) {
+    console.error('Error fetching tracking codes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/tracking-codes/active/:position', async (req, res) => {
+  try {
+    const codes = await query(
+      'SELECT * FROM tracking_codes WHERE position = ? AND active = true ORDER BY id',
+      [req.params.position]
+    );
+    res.json(codes);
+  } catch (err) {
+    console.error('Error fetching active tracking codes:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -208,6 +222,7 @@ app.post('/api/tracking-codes', async (req, res) => {
     
     res.status(201).json(code);
   } catch (err) {
+    console.error('Error creating tracking code:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -225,6 +240,7 @@ app.put('/api/tracking-codes/:id', async (req, res) => {
     
     res.json(code);
   } catch (err) {
+    console.error('Error updating tracking code:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -234,29 +250,7 @@ app.delete('/api/tracking-codes/:id', async (req, res) => {
     await query('DELETE FROM tracking_codes WHERE id = ?', [req.params.id]);
     res.status(204).end();
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Add before other tracking-codes endpoints
-app.get('/api/tracking-codes/active/:position', async (req, res) => {
-  try {
-    const { position } = req.params;
-    
-    // Validate position
-    const validPositions = ['head', 'body-start', 'body-end'];
-    if (!validPositions.includes(position)) {
-      return res.status(400).json({ error: 'Invalid position' });
-    }
-
-    const codes = await query(
-      'SELECT * FROM tracking_codes WHERE position = ? AND active = true ORDER BY id',
-      [position]
-    );
-
-    res.json(codes);
-  } catch (err) {
-    console.error('Error fetching tracking codes:', err);
+    console.error('Error deleting tracking code:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -423,6 +417,55 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: err.message });
+  }
+});
+
+// Get all users with book counts
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await query(`
+      SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.role,
+        COUNT(b.id) as book_count
+      FROM users u
+      LEFT JOIN books b ON u.id = b.user_id
+      GROUP BY u.id
+      ORDER BY u.full_name
+    `);
+
+    // Remove sensitive data
+    const safeUsers = users.map(({ password, ...user }) => user);
+    res.json(safeUsers);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete user and their books
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Prevent deleting admin users
+    const [user] = await query('SELECT role FROM users WHERE id = ?', [userId]);
+    if (user?.role === 'admin') {
+      return res.status(403).json({ error: 'Cannot delete admin users' });
+    }
+
+    // Delete user's books first (due to foreign key)
+    await query('DELETE FROM books WHERE user_id = ?', [userId]);
+    
+    // Then delete the user
+    await query('DELETE FROM users WHERE id = ?', [userId]);
+    
+    res.status(204).end();
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

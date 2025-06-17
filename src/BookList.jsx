@@ -234,9 +234,9 @@ const BookList = () => {
             <th>Author</th>
             <th>Category</th>
             <th>Type</th>
-            <th>Status</th>
-            <th><i className="material-icons">visibility</i></th>
-            <th><i className="material-icons">download</i></th>
+            <th style={{width: "100px" }}>Status</th>
+            <th style={{width: "60px" }}><i className="material-icons">visibility</i></th>
+            <th style={{width: "60px" }}><i className="material-icons">download</i></th>
             {isAdmin && <th>Actions</th>}
           </tr>
         </thead>
@@ -295,6 +295,16 @@ const BookList = () => {
                       #{tag}
                     </a>
                   ))}
+                </td>
+                <td>
+                  <span 
+                    className={`btn-small ${book.book_status === 1 ? 'green' : 'orange'}`}
+                    style={{ cursor: 'default' }}
+                  >
+                    <i className="material-icons">
+                      {book.book_status === 1 ? 'check' : 'pause'}
+                    </i>
+                  </span>
                 </td>
                 <td>
                   {book.view_count || 0}

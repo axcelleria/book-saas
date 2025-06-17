@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import M from 'materialize-css/dist/js/materialize.min.js';
+import { API_URL } from '../../config/api';
 
 const Users = () => {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch(`${API_URL}/users`);
       if (!response.ok) throw new Error('Failed to fetch users');
       const data = await response.json();
       setUsers(data);
@@ -38,7 +39,7 @@ const Users = () => {
     }
 
     try {
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
         method: 'DELETE'
       });
 
