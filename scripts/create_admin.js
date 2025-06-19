@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import mysql from 'mysql2/promise';
 
 const createSuperAdmin = async () => {
-  const password = 'admin123'; // Change this to your desired password
+  const password = '[A]dmin{777}'; // Change this to your desired password
   const hashedPassword = await bcrypt.hash(password, 10);
   
   const connection = await mysql.createConnection({

@@ -89,12 +89,10 @@ app.post('/api/books', async (req, res) => {
   try {
     const book = req.body;
     book.id = uuidv4();
-    book.slug = generateSlug(book.title);
-
-    const result = await query(
+    book.slug = generateSlug(book.title);    const result = await query(
       `INSERT INTO books 
       (id, title, slug, cover, author, description, category, tags, 
-       bookType, sourceUrl, discount_code, book_status, user_id, created_at, updated_at) 
+       book_type, source_url, discount_code, book_status, user_id, created_at, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         book.id,
@@ -105,11 +103,11 @@ app.post('/api/books', async (req, res) => {
         book.description,
         book.category,
         book.tags,
-        book.bookType,
-        book.sourceUrl,
+        book.book_type,
+        book.source_url,
         book.discount_code || null,
         book.book_status || 0,
-        book.user_id,
+        book.user_id
       ]
     );
 
@@ -124,11 +122,11 @@ app.put('/api/books/:id', async (req, res) => {
   try {
     const book = req.body;
     book.slug = generateSlug(book.title);
-    
-    await query(
+      await query(
       `UPDATE books SET 
       title = ?, slug = ?, cover = ?, author = ?, description = ?, 
-      category = ?, tags = ?, bookType = ?, sourceUrl = ?, discountCode = ? 
+      category = ?, tags = ?, book_type = ?, source_url = ?, discount_code = ?,
+      book_status = ?, updated_at = NOW()
       WHERE id = ?`,
       [
         book.title,
@@ -138,9 +136,10 @@ app.put('/api/books/:id', async (req, res) => {
         book.description,
         book.category,
         book.tags,
-        book.bookType,
-        book.sourceUrl,
-        book.discountCode || null,
+        book.book_type,
+        book.source_url,
+        book.discount_code || null,
+        book.book_status || 0,
         req.params.id
       ]
     );
@@ -160,12 +159,44 @@ app.delete('/api/books/:id', async (req, res) => {
   }
 });
 
-// Categories Endpoints
+// Categories Management Endpoints
 app.get('/api/categories', async (req, res) => {
   try {
-    const categories = await query('SELECT DISTINCT category FROM books WHERE category IS NOT NULL');
-    const categoryNames = categories.map(c => c.category);
-    res.json(categoryNames);
+    // Get all categories with their parent information
+    const categories = await query(`
+      SELECT c.*, p.name as parent_name 
+      FROM categories c 
+      LEFT JOIN categories p ON c.parent_id = p.id 
+      ORDER BY COALESCE(c.parent_id, c.id), c.name
+    `);
+
+    // Organize into parent-child structure if requested
+    const structured = req.query.structured === 'true'
+      ? categories.reduce((acc, category) => {
+          if (!category.parent_id) {
+            // This is a parent category
+            category.children = categories
+              .filter(c => c.parent_id === category.id)
+              .map(c => ({ ...c, children: [] }));
+            acc.push(category);
+          }
+          return acc;
+        }, [])
+      : categories;
+
+    res.json(structured);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/categories/:id', async (req, res) => {
+  try {
+    const [category] = await query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -173,12 +204,112 @@ app.get('/api/categories', async (req, res) => {
 
 app.post('/api/categories', async (req, res) => {
   try {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'Category name is required' });
-    
-    // Since we don't have a separate categories table, we just validate
-    // that this is a valid category by checking if it exists in any book
-    res.json({ name, message: 'Category will be available for selection' });
+    const { name, description, parentId } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
+
+    // If parentId is provided, verify it exists
+    if (parentId) {
+      const [parent] = await query('SELECT * FROM categories WHERE id = ?', [parentId]);
+      if (!parent) {
+        return res.status(400).json({ error: 'Parent category not found' });
+      }
+      if (parent.parent_id) {
+        return res.status(400).json({ error: 'Cannot create nested categories beyond one level' });
+      }
+    }
+
+    const slug = name.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '-');
+
+    const categoryId = uuidv4();
+    await query(
+      'INSERT INTO categories (id, name, slug, description, parent_id) VALUES (?, ?, ?, ?, ?)',
+      [categoryId, name, slug, description, parentId || null]
+    );
+
+    const [newCategory] = await query('SELECT * FROM categories WHERE id = ?', [categoryId]);
+    res.status(201).json(newCategory);
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Category name already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/categories/:id', async (req, res) => {
+  try {
+    const { name, description, parentId } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
+
+    // Verify the category exists
+    const [existingCategory] = await query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!existingCategory) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // If parentId is provided, verify it exists and check nesting rules
+    if (parentId) {
+      // Can't set own ID as parent
+      if (parentId === req.params.id) {
+        return res.status(400).json({ error: 'Category cannot be its own parent' });
+      }
+
+      const [parent] = await query('SELECT * FROM categories WHERE id = ?', [parentId]);
+      if (!parent) {
+        return res.status(400).json({ error: 'Parent category not found' });
+      }
+      if (parent.parent_id) {
+        return res.status(400).json({ error: 'Cannot create nested categories beyond one level' });
+      }
+
+      // Check if this category has children (can't make a parent category into a child)
+      const [childCount] = await query(
+        'SELECT COUNT(*) as count FROM categories WHERE parent_id = ?',
+        [req.params.id]
+      );
+      if (childCount.count > 0) {
+        return res.status(400).json({ error: 'Cannot make a parent category into a child category' });
+      }
+    }
+
+    const slug = name.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '-');
+
+    await query(
+      'UPDATE categories SET name = ?, slug = ?, description = ?, parent_id = ? WHERE id = ?',
+      [name, slug, description, parentId || null, req.params.id]
+    );
+
+    const [updatedCategory] = await query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!updatedCategory) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    res.json(updatedCategory);
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Category name already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const [category] = await query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    await query('DELETE FROM categories WHERE id = ?', [req.params.id]);
+    res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -374,6 +505,59 @@ app.put('/api/users/:id/password', async (req, res) => {
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error('Password update error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Add Registration endpoint
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { fullName, email, password } = req.body;
+
+    // Validate input
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await query(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const userId = uuidv4();
+    await query(
+      'INSERT INTO users (id, full_name, email, password, role) VALUES (?, ?, ?, ?, ?)',
+      [userId, fullName, email, hashedPassword, 'user']
+    );
+
+    // Get user without password
+    const [newUser] = await query(
+      'SELECT id, full_name, email, role FROM users WHERE id = ?',
+      [userId]
+    );
+
+    // Create token
+    const token = jwt.sign(
+      { userId: newUser.id, role: newUser.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      token,
+      user: newUser
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
     res.status(500).json({ message: err.message });
   }
 });

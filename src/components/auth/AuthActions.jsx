@@ -95,8 +95,8 @@ const AuthActions = () => {
 
       <ul id="user-dropdown" className="dropdown-content">
         <li>
-          <Link to="/books">
-            <i className="material-icons">book</i> Books
+          <Link to="/categories">
+            <i className="material-icons tiny">local_offer</i> Categories
           </Link>
         </li>
         <li>

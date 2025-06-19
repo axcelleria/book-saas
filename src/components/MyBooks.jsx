@@ -37,6 +37,8 @@ const MyBooks = () => {
         book.title.toLowerCase().includes(titleFilter.toLowerCase())
       )
     );
+
+    M.Tooltip.init(document.querySelectorAll('.tooltipped'));
   }, [titleFilter, books]);
 
   const handleDelete = async (id) => {
@@ -121,6 +123,7 @@ const MyBooks = () => {
             <th>Author</th>
             <th>Category</th>
             <th>Tags</th>
+            <th style={{width: "100px" }}>Status</th>
             <th style={{ width: '55px' }}> <i className="material-icons tiny">visibility</i> </th>
             <th style={{ width: '55px' }}> <i className="material-icons tiny">file_download</i> </th>
             <th>Actions</th>
@@ -155,6 +158,16 @@ const MyBooks = () => {
                     </span>
                   ))}
               </td>
+                <td>
+                  <span 
+                    className={`btn-small ${book.book_status === 1 ? 'green' : 'orange'}`}
+                    style={{ cursor: 'default' }}
+                  >
+                    <i className="material-icons tooltipped" data-position="top" data-tooltip={book.book_status === 1 ? 'Public' : 'Paused'}>
+                      {book.book_status === 1 ? 'visibility' : 'visibility_off'}
+                    </i>
+                  </span>
+                </td>
               <td>
                 {book.view_count || 0}
               </td>
@@ -164,14 +177,18 @@ const MyBooks = () => {
               <td>
                 <Link
                   to={`/edit/${book.id}`}
-                  className="btn-small waves-effect waves-light"
+                  className="btn-small waves-effect waves-light tooltipped"
                   style={{ marginRight: '5px' }}
+                  data-position="top"
+                  data-tooltip="Edit Book"
                 >
                   <i className="material-icons">edit</i>
                 </Link>
                 <button
-                  className="btn-small red waves-effect waves-light"
+                  className="btn-small red waves-effect waves-light tooltipped"
                   onClick={() => handleDelete(book.id)}
+                  data-position="top"
+                  data-tooltip="Delete Book"
                 >
                   <i className="material-icons">delete</i>
                 </button>

@@ -81,6 +81,7 @@ const BookList = () => {
         activeFilters.tags.some(tag => book.tags.split(',').map(t => t.trim()).includes(tag))
       );
     }
+    M.Tooltip.init(document.querySelectorAll('.tooltipped'));
 
     setFilteredBooks(result);
   }, [books, filters, activeFilters]);
@@ -297,12 +298,9 @@ const BookList = () => {
                   ))}
                 </td>
                 <td>
-                  <span 
-                    className={`btn-small ${book.book_status === 1 ? 'green' : 'orange'}`}
-                    style={{ cursor: 'default' }}
-                  >
-                    <i className="material-icons">
-                      {book.book_status === 1 ? 'check' : 'pause'}
+                  <span className={`btn-small ${book.book_status === 1 ? 'green' : 'orange'}`} style={{ cursor: 'default' }}>
+                    <i className="material-icons tooltipped" data-position="top" data-tooltip={book.book_status === 1 ? 'Public' : 'Paused'}>
+                      {book.book_status === 1 ? 'visibility' : 'visibility_off'}
                     </i>
                   </span>
                 </td>

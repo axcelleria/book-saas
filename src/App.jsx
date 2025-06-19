@@ -16,6 +16,7 @@ import PrivateRoute from './components/PrivateRoute';
 import Home from './components/Home';
 import Profile from './components/auth/Profile';
 import Users from './components/admin/Users';
+import CategoryManager from './components/admin/CategoryManager';
 import { useEffect, useState } from 'react';
 import { getActiveTrackingCodes, getTrackingCodeSnippet } from './services/trackingService';
 
@@ -36,6 +37,8 @@ function App() {
         setHeadCodes(getTrackingCodeSnippet(head));
         setBodyStartCodes(getTrackingCodeSnippet(bodyStart));
         setBodyEndCodes(getTrackingCodeSnippet(bodyEnd));
+
+        console.log( bodyStartCodes )
       } catch (error) {
         console.error('Error loading tracking codes:', error);
       }
@@ -113,6 +116,14 @@ function App() {
                   element={
                     <PrivateRoute>
                       <Users />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/categories"
+                  element={
+                    <PrivateRoute>
+                      <CategoryManager />
                     </PrivateRoute>
                   }
                 />

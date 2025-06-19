@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 import { getAllBooks } from '../services/bookService';
 import M from 'materialize-css/dist/js/materialize.min.js';
 
+const truncateDescription = (description) => {
+  if (!description) return 'No description available.';
+  const words = description.split(/\s+/);
+  if (words.length <= 20) return description;
+  return words.slice(0, 15).join(' ') + '...';
+};
+
 const Home = () => {
   const [randomBook, setRandomBook] = useState(null);
   const [books, setBooks] = useState([]);
@@ -44,7 +51,7 @@ const Home = () => {
       <h3 className="center-align">Featured Book</h3>
       
       <div className="card horizontal">
-        <div className="card-image" style={{ width: '240px', padding: '20px' }}>
+        <div className="card-image" style={{ width: '320px', padding: '20px' }}>
           <img 
             src={randomBook.cover || 'https://placehold.co/240x320'} 
             alt={randomBook.title}
@@ -56,12 +63,11 @@ const Home = () => {
             <h4>{randomBook.title}</h4>
             <h5>By {randomBook.author}</h5>
             <div className="divider" style={{ margin: '15px 0' }}></div>
-            <p>{randomBook.description || 'No description available.'}</p>
-
+            <p>{truncateDescription(randomBook.description)}</p>
             <div className="divider" style={{ margin: '15px 0' }}></div>
             <Link 
               to={`/book/${generateSlug(randomBook.title)}`}
-              className="btn btn-small green"
+              className="btn btn-large green"
             >
               <i className="material-icons left">info</i>
               View Details

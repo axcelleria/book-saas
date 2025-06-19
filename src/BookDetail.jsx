@@ -37,39 +37,37 @@ const BookDetail = () => {
   const [userEmail, setUserEmail] = useState(getStoredEmail());
   const [showEmailForm, setShowEmailForm] = useState(false);
   const modalRef = useRef(null);
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (slug) {
-          // Directly fetch the book by slug
-          const foundBook = await getBookBySlug(slug);
-          if (!foundBook || foundBook.book_status === 0) {
-            M.toast({ html: 'Book is not available' });
-            navigate('/');
-            return;
-          }
-          setBook(foundBook);
-          // Increment view count after confirming book exists
-          await incrementBookViews(foundBook.id);
-        } else {
-          // For random books, only fetch published ones
-          const publishedBooks = await getPublishedBooks();
-          setBooks(publishedBooks);
-          
-          if (publishedBooks.length > 0) {
-            const randomIndex = Math.floor(Math.random() * publishedBooks.length);
-            setBook(publishedBooks[randomIndex]);
-          }
+        const foundBook = await getBookBySlug(slug);
+        if (!foundBook || foundBook.book_status === 0) {
+          M.toast({ html: 'Book is not available' });
+          navigate('/');
+          return;
         }
+        setBook(foundBook);
+        
+        // Track book view
+        await incrementBookViews(foundBook.id);
+        
+        // Fetch other books for recommendations
+        const allBooks = await getPublishedBooks();
+        setBooks(allBooks.filter(b => b.id !== foundBook.id).slice(0, 3));
       } catch (error) {
-        M.toast({ html: `Error: ${error.message}` });
+        console.error('Error fetching book:', error);
+        M.toast({ html: 'Error loading book details' });
+        navigate('/');
       }
       setLoading(false);
     };
 
-    fetchData();
+    if (slug) {
+      fetchData();
+    } else {
+      navigate('/');
+    }
   }, [slug, navigate]);
 
   // Separate useEffect for modal initialization
@@ -133,7 +131,7 @@ const BookDetail = () => {
     if (!userEmail) {
       return (
         <button 
-          className="btn btn-small green modal-trigger"
+          className="btn btn-large green modal-trigger"
           data-target="downloadModal"
         >
           <i className="material-icons left">download</i>
@@ -194,7 +192,7 @@ const BookDetail = () => {
       <h3 className="center-align">{!slug ? 'Featured Book' : 'Book Details'}</h3>
       
       <div className="card horizontal" style={{ marginTop: '30px' }}>
-        <div className="card-image" style={{ width: '240px', padding: '20px' }}>
+        <div className="card-image" style={{ width: '320px', padding: '20px' }}>
           <img 
             src={book.cover || 'https://placehold.co/240x320'} 
             alt={book.title}
@@ -206,9 +204,11 @@ const BookDetail = () => {
             <h4>{book.title}</h4>
             <h5>By {book.author}</h5>
             <div className="divider" style={{ margin: '15px 0' }}></div>
-            {book.description && book.description.split('\n').map(description => (
-              <p key={description} >{description.trim()}</p>
-            ))}
+            {book.description.split('\n').map((line, index) => (
+              <p key={index}>
+                {line}
+              </p>
+            )) || '<p>No description available.</p>'}
             <div className="divider" style={{ margin: '15px 0' }}></div>
             {renderSourceButton()}
             {book.bookType === 'discount' && userEmail && (
@@ -255,8 +255,8 @@ const BookDetail = () => {
       <div id="downloadModal" className="modal" ref={modalRef}>
         <form onSubmit={handleDownload}>
           <div className="modal-content">
-            <h4>Verify Email to Continue</h4>
-            <p>Please verify your email to access the {book.bookType === 'free' ? 'download' : 'discount'} link.</p>
+            <h4>Enter Your Email to Unlock This Offer!</h4>
+            <p>Sign up now to receive book discounts, VIP access to new releases, and exclusive giveaways!</p>
             <div className="input-field">
               <input
                 id="email"
