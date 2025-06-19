@@ -3,9 +3,7 @@ import { useState, useEffect } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-
-const API_URL = 'http://localhost:3001/api';
-
+import { API_URL } from './config/api';
 
 const TrackingManager = () => {
   const { user } = useAuth();
