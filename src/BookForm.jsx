@@ -432,10 +432,12 @@ const BookForm = () => {
                   {formData.author || 'Author Name'}
                 </p>
 
-                <p style={{ marginBottom: '20px' }}>
-                  {formData.description || 'Book description will appear here...'}
-                </p>
-
+                {formData.description.split('\n').map((line, index) => (
+                  <p key={index}>
+                    {line}
+                  </p>
+                )) || '<p>Book description will appear here...</p>'}
+                <div className="divider" style={{ margin: '15px 0' }}></div>
                 {formData.category && (
                   <div className="chip teal white-text">
                     {formData.category}

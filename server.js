@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const app = express();
 app.use(cors());
@@ -509,6 +510,145 @@ app.put('/api/users/:id/password', async (req, res) => {
   }
 });
 
+// Forget password endpoint
+
+// Generate and save token
+app.post('/api/auth/request-reset', async (req, res) => {
+  const { email } = req.body;
+  
+  // 1. Generate token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+  const expiresAt = new Date(Date.now() + 3600000 * 4); // 4 hours
+
+  // 2. Save to database
+  await query(
+    'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?',
+    [resetToken, expiresAt, email]
+  );
+  
+  res.json({ token: resetToken });
+});
+
+// Verify token
+app.get('/api/auth/verify-reset-token/:token', async (req, res) => {
+  const [user] = await query(
+    'SELECT * FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()',
+    [req.params.token]
+  );
+  
+  if (!user) return res.status(400).json({ valid: false });
+  res.json({ valid: true, email: user.email });
+});
+
+// Password Reset Token Endpoint
+app.post('/api/auth/reset-token', async (req, res) => {
+  const { email, token, expiresAt } = req.body;
+  if (!email || !token || !expiresAt) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+  try {
+    // Update the user with the reset token and expiry
+    const result = await query(
+      'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?',
+      [token, expiresAt, email]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    res.json({ message: 'Reset token saved.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Password reset by token
+app.post('/api/auth/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+  if (!password || password.length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+  }
+  try {
+    // Find user with valid token
+    const [user] = await query(
+      'SELECT * FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()',
+      [token]
+    );
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token.' });
+    }
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // Update password and clear reset token
+    await query(
+      'UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?',
+      [hashedPassword, user.id]
+    );
+    res.json({ message: 'Password reset successful.' });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//add subscriber endpoint
+app.post('/api/subscriber', async (req, res) => {
+  try {
+    const { fullName, email } = req.body;
+
+    // Validate input
+    if (!fullName || !email) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await query(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (existingUser) {
+      return res.status(200).json({ message: 'Email already registered', isNew: false });
+    }
+
+    // Generate a default password
+    const hashedPassword = await bcrypt.hash("Sub{0|1}", 10);
+
+    // Create new user
+    const userId = uuidv4();
+    const role = false;
+    await query(
+      'INSERT INTO users (id, full_name, email, password, role) VALUES (?, ?, ?, ?, ?)',
+      [userId, fullName, email, hashedPassword, role || 'subscriber']
+    );
+
+    // Get user without password
+    const [newUser] = await query(
+      'SELECT id, full_name, email, role FROM users WHERE id = ?',
+      [userId]
+    );
+
+    // Create token
+    const token = jwt.sign(
+      { userId: newUser.id, role: newUser.role },
+      process.env.JWT_SECRET || 'not-a-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      token,
+      user: newUser,
+      isNew: true
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+/* subscriber handler end */ 
+
 // Add Registration endpoint
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -536,7 +676,7 @@ app.post('/api/auth/register', async (req, res) => {
     const userId = uuidv4();
     await query(
       'INSERT INTO users (id, full_name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [userId, fullName, email, hashedPassword, 'user']
+      [userId, fullName, email, hashedPassword, 'contributor']
     );
 
     // Get user without password
@@ -548,7 +688,7 @@ app.post('/api/auth/register', async (req, res) => {
     // Create token
     const token = jwt.sign(
       { userId: newUser.id, role: newUser.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'not-a-secret-key',
       { expiresIn: '24h' }
     );
 
@@ -660,21 +800,6 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-
-app.get('/', (req, res) => {
-  res.send(`
-    <h1>Book Manager API</h1>
-    <p>Available endpoints:</p>
-    <ul>
-      <li>GET /api/books</li>
-      <li>GET /api/books/:id</li>
-      <li>POST /api/books</li>
-      <li>PUT /api/books/:id</li>
-      <li>DELETE /api/books/:id</li>
-      <li>GET /api/categories</li>
-    </ul>
-  `);
-});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

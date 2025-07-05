@@ -17,17 +17,6 @@ export const getAllBooks = async () => {
   }
 };
 
-export const getPublishedBooks = async () => {
-  try {
-    const response = await fetch(`${API_URL}/books/published`);
-    if (!response.ok) throw new Error('Network response was not ok');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching published books:', error);
-    return [];
-  }
-};
-
 export const getBookBySlug = async (slug) => {
   try {
     const response = await fetch(`${API_URL}/book/${slug}`);

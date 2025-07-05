@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getPublishedBooks, getBookBySlug, incrementBookViews } from './services/bookService';
+import { getAllBooks, getBookBySlug, incrementBookViews } from './services/bookService';
+import { API_URL } from './config/api';
+import { sendWelcomeEmail } from './utils/email-service';
 
 // Storage helpers
 const STORAGE_KEY = 'bookEmail';
@@ -33,10 +35,12 @@ const BookDetail = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [tosAgreed, setTosAgreed] = useState(false);
   const [userEmail, setUserEmail] = useState(getStoredEmail());
   const [showEmailForm, setShowEmailForm] = useState(false);
   const modalRef = useRef(null);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -53,8 +57,11 @@ const BookDetail = () => {
         await incrementBookViews(foundBook.id);
         
         // Fetch other books for recommendations
-        const allBooks = await getPublishedBooks();
-        setBooks(allBooks.filter(b => b.id !== foundBook.id).slice(0, 3));
+        const allBooks = await getAllBooks();
+        const relatedBooks = allBooks
+          .filter(b => b.book_status === 1 && b.id !== foundBook.id)
+          .slice(0, 3);
+        setBooks(relatedBooks);
       } catch (error) {
         console.error('Error fetching book:', error);
         M.toast({ html: 'Error loading book details' });
@@ -78,6 +85,7 @@ const BookDetail = () => {
         dismissible: true,
         onCloseEnd: () => {
           setEmail('');
+          setName('');
           setTosAgreed(false);
         }
       });
@@ -112,22 +120,59 @@ const BookDetail = () => {
   // Update handleDownload function
   const handleDownload = async (e) => {
     e.preventDefault();
-    if (!email || !tosAgreed) return;
-
+    if (!name || !email || !tosAgreed) return;
     try {
+      // Register user with subscriber role
+      const res = await fetch(`${API_URL}/subscriber`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: name,
+          email
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to register');
+      }
+
       setStoredEmail(email);
       setUserEmail(email);
       setShowEmailForm(false);
       M.Modal.getInstance(modalRef.current).close();
-      M.toast({ html: 'Email verified successfully!' });
-      // Navigate to Landing page after successful verification
-      navigate(`/landing/${ generateSlug(book.title) }`);
+      M.toast({ html: 'Registration successful!' });
+      navigate(`/landing/${generateSlug(book.title)}`);
+
+      if (data.isNew) {
+        // Send welcome email
+        await sendWelcomeEmail(
+          email,
+          name,
+          book.title,
+          book.source_url,
+          book.discount_code ? book.discount_code : 'FREE'
+        );
+      }
     } catch (error) {
       M.toast({ html: `Error: ${error.message}` });
     }
   };
 
+  const handleCopyCoupon = (code) => {
+    return () => {
+      navigator.clipboard.writeText(code)
+        .then(() => {
+          M.toast({ html: 'Coupon code copied to clipboard!' });
+        })
+        .catch(err => {
+          M.toast({ html: 'Failed to copy coupon code.' });
+        });
+    };
+  };
+
   const renderSourceButton = () => {
+    // Only allow download/discount for subscribers
     if (!userEmail) {
       return (
         <button 
@@ -135,7 +180,7 @@ const BookDetail = () => {
           data-target="downloadModal"
         >
           <i className="material-icons left">download</i>
-          {book.bookType === 'free' ? 'Download' : 'Get Discount'}
+          {book.book_type === 'free' ? 'Get Free Copy' : 'Get Discounted Copy'}
         </button>
       );
     }
@@ -145,10 +190,10 @@ const BookDetail = () => {
         onClick={() => navigate('/landing', { 
           state: { bookSlug: generateSlug(book.title) } 
         })}
-        className="btn btn-small green"
+        className="btn btn-large green"
       >
         <i className="material-icons left">download</i>
-        {book.bookType === 'free' ? 'View Downloads' : 'View Discounts'}
+        {book.book_type === 'free' ? 'View Downloads' : 'View Discounts'}
       </button>
     );
   };
@@ -211,10 +256,14 @@ const BookDetail = () => {
             )) || '<p>No description available.</p>'}
             <div className="divider" style={{ margin: '15px 0' }}></div>
             {renderSourceButton()}
-            {book.bookType === 'discount' && userEmail && (
-              <div className="chip" style={{ marginLeft: '10px' }}>
-                Code: {book.discountCode}
-              </div>
+            {book.book_type === 'discount' && userEmail && (
+            <div className="btn btn-large"
+                style={{ marginLeft: '10px' }}
+                onClick={handleCopyCoupon(book.discount_code)}
+                title='Click to Copy Discount Code'
+                >
+              <i className="material-icons left">local_offer</i> {book.discount_code}
+            </div>
             )}
             <div className="row" style={{ marginTop: '20px' }}>
               <div className="col s12">
@@ -255,14 +304,24 @@ const BookDetail = () => {
       <div id="downloadModal" className="modal" ref={modalRef}>
         <form onSubmit={handleDownload}>
           <div className="modal-content">
-            <h4>Enter Your Email to Unlock This Offer!</h4>
+            <h4>Enter Your Name & Email to Unlock This Offer!</h4>
             <p>Sign up now to receive book discounts, VIP access to new releases, and exclusive giveaways!</p>
+            <div className="input-field">
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+              <label htmlFor="name">Your Name</label>
+            </div>
             <div className="input-field">
               <input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 required
               />
               <label htmlFor="email">Your Email</label>
@@ -272,7 +331,7 @@ const BookDetail = () => {
                 <input
                   type="checkbox"
                   checked={tosAgreed}
-                  onChange={(e) => setTosAgreed(e.target.checked)}
+                  onChange={e => setTosAgreed(e.target.checked)}
                   required
                 />
                 <span>
@@ -285,7 +344,7 @@ const BookDetail = () => {
             <button
               type="submit"
               className="btn waves-effect waves-light green"
-              disabled={!email || !tosAgreed}
+              disabled={!name || !email || !tosAgreed}
             >
               <i className="material-icons left">check</i>
               Verify Email

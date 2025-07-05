@@ -21,31 +21,20 @@ const getStoredEmail = () => {
   return email;
 };
 
-const setStoredEmail = (email) => {
-  const expiry = new Date().getTime() + (24 * 60 * 60 * 1000);
-  localStorage.setItem(STORAGE_KEY, email);
-  localStorage.setItem(EXPIRY_KEY, expiry.toString());
-};
-
 const Landing = () => {
   useTrackingCodes();
 
   const location = useLocation();
   const bookSlug = location.state?.bookSlug;
-  const [randomBook, setRandomBook] = useState(null);
-  const [books, setBooks] = useState([]);
+  const [landingBook, setLandingBook] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [tosAgreed, setTosAgreed] = useState(false);
   const [isVerified, setIsVerified] = useState(!!getStoredEmail());
-  const modalRef = useRef(null);
 
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
       try {
         const fetchedBooks = await getAllBooks();
-        setBooks(fetchedBooks);
         
         if (fetchedBooks.length > 0) {
           let selectedBook;
@@ -64,7 +53,7 @@ const Landing = () => {
             selectedBook = fetchedBooks[randomIndex];
           }
 
-          setRandomBook(selectedBook);
+          setLandingBook(selectedBook);
           document.title = selectedBook.title;
         }
       } catch (error) {
@@ -73,26 +62,34 @@ const Landing = () => {
       setLoading(false);
     };
 
-    // Initialize tracking code here
-    // Example: Google Analytics, Facebook Pixel, etc.
-    // console.log('Initialize tracking code');
-
     M.AutoInit();
     fetchBooks();
   }, [bookSlug]);
 
-  const handleEmailSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !tosAgreed) return;
-
-    try {
-      // TODO: Add API call to save email to your backend
-      setStoredEmail(email);
-      setIsVerified(true);
-      M.Modal.getInstance(modalRef.current).close();
-      M.toast({ html: 'Email verified successfully!' });
-    } catch (error) {
-      M.toast({ html: `Error: ${error.message}` });
+  const getBookButton = (book) => {
+    if ( book.book_type === 'free' ) {
+      return (
+        <a href={book.source_url} target="_blank" className="btn btn-large green">
+          <i className="material-icons left">download</i>
+          Claim Your Free Copy Now!
+        </a>
+      );
+    } else {
+      return (
+        <>
+        <a href={book.source_url} target="_blank" className="btn btn-large orange">
+          <i className="material-icons left">local_offer</i>
+          Claim Your Discounted Copy Now!
+        </a>
+        <div className="btn btn-large"
+            style={{ marginLeft: '10px' }}
+            onClick={handleCopyCoupon(book.discount_code)}
+            title='Click to Copy Discount Code'
+            >
+          <i className="material-icons left">local_offer</i> {book.discount_code}
+        </div>
+      </>
+      );
     }
   };
 
@@ -110,145 +107,91 @@ const Landing = () => {
     );
   }
 
-  if (books.length === 0) {
-    return (
-      <div className="container center-align" style={{ marginTop: '50px' }}>
-        <div className="card-panel blue lighten-5">
-          <i className="material-icons large">menu_book</i>
-          <h4>No Books Added Yet</h4>
-          <p>Start building your book collection by adding your first book!</p>
-          <Link 
-            to="/add" 
-            className="btn-large waves-effect waves-light blue"
-            style={{ marginTop: '20px' }}
-          >
-            <i className="material-icons left">add</i>
-            Add Your First Book
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const handleCopyCoupon = (code) => {
+    return () => {
+      navigator.clipboard.writeText(code)
+        .then(() => {
+          M.toast({ html: 'Coupon code copied to clipboard!' });
+        })
+        .catch(err => {
+          M.toast({ html: 'Failed to copy coupon code.' });
+        });
+    };
+  };
+  
 
   return (
     <div className="container">
       {isVerified ? (
         <>
-          <h3 className="center-align">Read {randomBook.title}</h3>
+          <h3 className="center-align">Read {landingBook.title}</h3>
           
           <div className="card horizontal" style={{ marginTop: '30px' }}>
             <div className="card-image" style={{ width: '240px', padding: '20px' }}>
               <img 
-                src={randomBook.cover || 'https://placehold.co/240x320'} 
-                alt={randomBook.title}
+                src={landingBook.cover || 'https://placehold.co/240x320'} 
+                alt={landingBook.title}
                 style={{ width: '100%', height: 'auto' }}
               />
             </div>
             <div className="card-stacked">
               <div className="card-content">
-                <h4>{randomBook.title}</h4>
-                <h5>By {randomBook.author}</h5>
+                <h4>{landingBook.title}</h4>
+                <h5>By {landingBook.author}</h5>
                 <div className="divider" style={{ margin: '15px 0' }}></div>
-                <p>{randomBook.description || 'No description available.'}</p>
+                
+                {landingBook.description ? (
+                  landingBook.description.split('\n').map((line, index) => (
+                    line.trim().length > 0 ? (
+                      <p key={index}>{line}</p>
+                    ) : null
+                  ))
+                ) : (
+                  <p>No description available.</p>
+                )}
+                <div className="divider" style={{ margin: '15px 0' }}></div>
+                
+                {getBookButton(landingBook)}
 
-                <div className="divider" style={{ margin: '15px 0' }}></div>
-                <a href={ randomBook.sourceUrl } target="_blank" className="btn btn-small green">
-                    <i className="material-icons left">download</i> Download</a>
+                {landingBook.discount_price && landingBook.price && (
+                  <div style={{ marginTop: '10px' }}>
+                    <span className="grey-text" style={{ textDecoration: 'line-through', marginRight: '10px' }}>
+                      ${landingBook.price.toFixed(2)}
+                    </span>
+                    <span className="green-text text-darken-2" style={{ fontSize: '1.2em' }}>
+                      ${landingBook.discount_price.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="row" style={{ marginTop: '20px' }}>
-                  <div className="col s6">
+                  <div className="col s12">
                     <span className="chip teal white-text">
-                      {randomBook.category || 'Uncategorized'}
+                      {landingBook.category || 'Uncategorized'}
                     </span>
 
-                {randomBook.tags && randomBook.tags.split(',').map(tag => (
-                  <span key={tag} className="chip">{tag.trim()}</span>
-                ))}
-
-                  </div>
-                  <div className="col s6 right-align">
-                    <Link 
-                      to={`/book/${generateSlug(randomBook.title)}`} 
-                      className="btn waves-effect waves-light"
-                    >
-                      View Details
-                    </Link>
+                    {landingBook.tags && landingBook.tags.split(',').map(tag => (
+                      <span key={tag} className="chip">{tag.trim()}</span>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="center-align" style={{ marginTop: '40px' }}>
-            <button 
-              onClick={() => {
-                const randomIndex = Math.floor(Math.random() * books.length);
-                setRandomBook(books[randomIndex]);
-              }}
-              className="btn waves-effect waves-light grey"
-            >
-              <i className="material-icons left">autorenew</i>
-              Show Another Book
-            </button>
-            
-            <Link 
-              to="/books" 
-              className="btn waves-effect waves-light blue"
-              style={{ marginLeft: '10px' }}
-            >
-              <i className="material-icons left">list</i>
-              Bookshelf
-            </Link>
           </div>
         </>
       ) : (
         <div className="center-align" style={{ marginTop: '50px' }}>
           <h4>Welcome to Our Book Collection</h4>
           <p>Please verify your email to access our free and discounted books.</p>
+          <Link
+            to={`/book/${generateSlug(landingBook.title)}`} 
+            className="btn waves-effect waves-light"
+          >
+            Return
+          </Link>
         </div>
       )}
 
-      {/* Email Verification Modal */}
-      <div id="verifyModal" className="modal" ref={modalRef}>
-        <form onSubmit={handleEmailSubmit}>
-          <div className="modal-content">
-            <h4>Welcome!</h4>
-            <p>Please verify your email to access our collection of free and discounted books.</p>
-            <div className="input-field">
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <label htmlFor="email">Your Email</label>
-            </div>
-            <p>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={tosAgreed}
-                  onChange={(e) => setTosAgreed(e.target.checked)}
-                  required
-                />
-                <span>
-                  I agree to the <Link to="/terms" target="_blank">Terms of Service</Link>
-                </span>
-              </label>
-            </p>
-          </div>
-          <div className="modal-footer">
-            <button
-              type="submit"
-              className="btn waves-effect waves-light green"
-              disabled={!email || !tosAgreed}
-            >
-              <i className="material-icons left">check</i>
-              Start Reading
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 };
