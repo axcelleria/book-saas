@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
 import { useNavigate, Link } from 'react-router-dom'; 
 import { useAuth } from './contexts/AuthContext';
+import { API_URL } from './config/api';
 
 const BookList = () => {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ const BookList = () => {
 
   const fetchBooks = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/books');
+      const response = await fetch(`${API_URL}/books`);
       const data = await response.json();
       setBooks(data);
       setFilteredBooks(data);
