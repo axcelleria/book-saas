@@ -10,6 +10,8 @@ import Terms from './components/Terms';
 import Landing from './Landing';
 import SignIn from './components/auth/SignIn';
 import SignUp from './components/auth/SignUp';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 import MyBooks from './components/MyBooks';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -65,7 +67,9 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<SignIn />} />
                 <Route path="/register" element={<SignUp />} />
-
+                <Route path="/register" element={<SignUp />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
                 {/* Protected routes */}
                 <Route
                   path="/my-books"

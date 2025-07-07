@@ -235,7 +235,7 @@ const BookList = () => {
             <th>Author</th>
             <th>Category</th>
             <th>Type</th>
-            <th style={{width: "100px" }}>Status</th>
+            {/* <th style={{width: "100px" }}>Status</th> */}
             <th style={{width: "60px" }}><i className="material-icons">visibility</i></th>
             <th style={{width: "60px" }}><i className="material-icons">download</i></th>
             {isAdmin && <th>Actions</th>}
@@ -243,7 +243,11 @@ const BookList = () => {
         </thead>
         <tbody>
           {filteredBooks.length > 0 ? (
-            filteredBooks.map(book => (
+            filteredBooks.map(book => { 
+              // Skip books with status < 1
+              if (book.book_status < 1) return null; 
+
+              return (
               <tr key={book.id}>
                 <td>
                   <Link to={`/book/${generateSlug(book.title)}`}>
@@ -297,13 +301,13 @@ const BookList = () => {
                     </a>
                   ))}
                 </td>
-                <td>
+                {/* <td>
                   <span className={`btn-small ${book.book_status === 1 ? 'green' : 'orange'}`} style={{ cursor: 'default' }}>
                     <i className="material-icons tooltipped" data-position="top" data-tooltip={book.book_status === 1 ? 'Public' : 'Paused'}>
                       {book.book_status === 1 ? 'visibility' : 'visibility_off'}
                     </i>
                   </span>
-                </td>
+                </td> */}
                 <td>
                   {book.view_count || 0}
                 </td>
@@ -328,7 +332,8 @@ const BookList = () => {
                   </td>
                 )}
               </tr>
-            ))
+            );
+            })
           ) : (
             <tr>
               <td colSpan="8" className="center-align">No books found</td>

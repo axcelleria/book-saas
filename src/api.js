@@ -1,4 +1,4 @@
-const API_URL = 'http://127.0.0.1:3001/api'; // Change in production
+import { API_URL }  from './config/api.js';
 
 export const getBooks = async () => {
   const response = await fetch(`${API_URL}/books`);

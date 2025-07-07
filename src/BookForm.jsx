@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from './config/api';
 
 const isSuperAdmin = (user) => user?.role === 'admin';
 
@@ -433,10 +432,12 @@ const BookForm = () => {
                   {formData.author || 'Author Name'}
                 </p>
 
-                <p style={{ marginBottom: '20px' }}>
-                  {formData.description || 'Book description will appear here...'}
-                </p>
-
+                {formData.description.split('\n').map((line, index) => (
+                  <p key={index}>
+                    {line}
+                  </p>
+                )) || '<p>Book description will appear here...</p>'}
+                <div className="divider" style={{ margin: '15px 0' }}></div>
                 {formData.category && (
                   <div className="chip teal white-text">
                     {formData.category}
