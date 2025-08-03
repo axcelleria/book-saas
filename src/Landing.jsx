@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import M from 'materialize-css/dist/js/materialize.min.js';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { getAllBooks, incrementBookDownloads } from './services/bookService';
 import { useTrackingCodes } from './hooks/useTrackingCodes';
 
@@ -25,7 +25,8 @@ const Landing = () => {
   useTrackingCodes();
 
   const location = useLocation();
-  const bookSlug = location.state?.bookSlug;
+  const { slug } = useParams(); // Get slug from URL params
+  const bookSlug = slug || location.state?.bookSlug; // Use URL param or location state
   const [landingBook, setLandingBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(!!getStoredEmail());
@@ -39,22 +40,30 @@ const Landing = () => {
         if (fetchedBooks.length > 0) {
           let selectedBook;
           if (bookSlug) {
-            selectedBook = fetchedBooks.find(b => 
-              generateSlug(b.title) === bookSlug
-            );
-            // Track download when coming from BookDetail
+            // Try to find book by exact slug match first
+            selectedBook = fetchedBooks.find(b => b.slug === bookSlug);
+            
+            // If not found, try finding by generated slug from title
+            if (!selectedBook) {
+              selectedBook = fetchedBooks.find(b => 
+                generateSlug(b.title) === bookSlug
+              );
+            }
+            
+            // Track download when book is found
             if (selectedBook && selectedBook.id) {
               await incrementBookDownloads(selectedBook.id);
             }
           }
           
           if (!selectedBook) {
-            const randomIndex = Math.floor(Math.random() * fetchedBooks.length);
-            selectedBook = fetchedBooks[randomIndex];
+            // If no book found by slug, show a random one
+            const activeBooks = fetchedBooks.filter(b => b.book_status === 1);
+            const randomIndex = Math.floor(Math.random() * activeBooks.length);
+            selectedBook = activeBooks[randomIndex];
           }
 
           setLandingBook(selectedBook);
-          document.title = selectedBook.title;
         }
       } catch (error) {
         console.error('Error:', error);
@@ -66,6 +75,16 @@ const Landing = () => {
     fetchBooks();
   }, [bookSlug]);
 
+  // Update document title when landing book changes
+  useEffect(() => {
+    if (landingBook) {
+      document.title = `${landingBook.title} - Optread`;
+      // Restore default title when component unmounts
+      return () => {
+        document.title = 'Optread';
+      };
+    }
+  }, [landingBook]);
   const getBookButton = (book) => {
     if ( book.book_type === 'free' ) {
       return (

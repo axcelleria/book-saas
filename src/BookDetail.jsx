@@ -23,7 +23,7 @@ const getStoredEmail = () => {
 };
 
 const setStoredEmail = (email) => {
-  const expiry = new Date().getTime() + (24 * 60 * 60 * 1000);
+  const expiry = new Date().getTime() + (24 * 60 * 60 * 1000); // 24 hours
   localStorage.setItem(STORAGE_KEY, email);
   localStorage.setItem(EXPIRY_KEY, expiry.toString());
 };
@@ -53,6 +53,9 @@ const BookDetail = () => {
         }
         setBook(foundBook);
         
+        // Set page title with book name
+        document.title = `${foundBook.title} - Book Details | Optread`;
+        
         // Track book view
         await incrementBookViews(foundBook.id);
         
@@ -75,6 +78,11 @@ const BookDetail = () => {
     } else {
       navigate('/');
     }
+    
+    // Cleanup: restore default title when component unmounts
+    return () => {
+      document.title = 'Optread';
+    };
   }, [slug, navigate]);
 
   // Separate useEffect for modal initialization
@@ -84,9 +92,8 @@ const BookDetail = () => {
       const modalInstance = M.Modal.init(modalElement, {
         dismissible: true,
         onCloseEnd: () => {
-          setEmail('');
           setName('');
-          setTosAgreed(false);
+          setTosAgreed(false); // Only reset name and TOS agreement
         }
       });
 
@@ -99,10 +106,13 @@ const BookDetail = () => {
     }
   }, [loading, book]); // Dependencies ensure modal is initialized after content loads
 
-  // Check email verification on mount
+  // Check email verification on mount and pre-fill if exists
   useEffect(() => {
     const storedEmail = getStoredEmail();
-    if (!storedEmail && !showEmailForm) {
+    if (storedEmail) {
+      setEmail(storedEmail); // Pre-fill email if it exists
+    }
+    if (!showEmailForm) {
       setShowEmailForm(true);
       const modalElem = document.querySelector('#downloadModal');
       if (modalElem) {

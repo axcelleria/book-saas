@@ -2,11 +2,13 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Navbar from './Navbar';
+import Footer from './Footer';
 import BookForm from './BookForm';
 import BookList from './BookList';
 import BookDetail from './BookDetail';
 import TrackingManager from './TrackingManager';
 import Terms from './components/Terms';
+import Policy from './components/Policy';
 import Landing from './Landing';
 import SignIn from './components/auth/SignIn';
 import SignUp from './components/auth/SignUp';
@@ -107,6 +109,7 @@ function App() {
                   }
                 />
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/policy" element={<Policy />} />
                 <Route
                   path="/profile"
                   element={
@@ -133,7 +136,9 @@ function App() {
                 />
               </Routes>
             </div>
+            <Footer />
           </div>
+          {/* .App */}
           {bodyEndCodes && (
             <div id="body-end-codes" dangerouslySetInnerHTML={{ __html: bodyEndCodes }} />
           )}
