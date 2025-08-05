@@ -63,6 +63,36 @@ const MyBooks = () => {
       }
     };
 
+  const exportSubscribers = async (bookId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/subscribers/export/${bookId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export subscribers');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `subscribers_${bookId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (error) {
+      M.toast({ html: `Error: ${error.message}` });
+    }
+  };
+
+  const handleExportClick = (bookId) => {
+    exportSubscribers(bookId);
+  };
+
   const generateSlug = (title) => {
     return title.toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove special chars
@@ -191,6 +221,15 @@ const MyBooks = () => {
                   data-tooltip="Delete Book"
                 >
                   <i className="material-icons">delete</i>
+                </button>
+                <button
+                  className="btn-small yellow darken-2 waves-effect waves-light tooltipped"
+                  onClick={() => handleExportClick(book.id)}
+                  data-position="top"
+                  data-tooltip="Export Subscribers"
+                  style={{ marginLeft: '5px' }}
+                >
+                  <i className="material-icons">file_download</i>
                 </button>
               </td>
             </tr>

@@ -138,6 +138,36 @@ const BookList = () => {
     }
   };
 
+  const exportSubscribers = async (bookId) => {
+    try {
+      const response = await fetch(`${API_URL}/subscribers/export/${bookId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export subscribers');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `subscribers_${bookId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (error) {
+      M.toast({ html: `Error: ${error.message}` });
+    }
+  };
+
+  const handleExportClick = (bookId) => {
+    exportSubscribers(bookId);
+  };
+
   const generateSlug = (title) => {
     return title.toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove special chars

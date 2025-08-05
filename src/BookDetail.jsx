@@ -169,6 +169,46 @@ const BookDetail = () => {
     }
   };
 
+  const saveSubscriber = async (bookId, name, email) => {
+    try {
+      const response = await fetch(`${API_URL}/subscribers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookId,
+          name,
+          email,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save subscriber');
+      }
+
+      M.toast({ html: 'Thank you for subscribing!' });
+    } catch (error) {
+      console.error('Error saving subscriber:', error);
+      M.toast({ html: `Error: ${error.message}` });
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!tosAgreed) {
+      M.toast({ html: 'You must agree to the terms of service' });
+      return;
+    }
+
+    if (book) {
+      await saveSubscriber(book.id, name, email);
+      setStoredEmail(email);
+    }
+  };
+
   const handleCopyCoupon = (code) => {
     return () => {
       navigator.clipboard.writeText(code)
