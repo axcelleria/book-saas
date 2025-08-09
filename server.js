@@ -518,7 +518,11 @@ app.post('/api/auth/request-reset', async (req, res) => {
   
   // 1. Generate token
   const resetToken = crypto.randomBytes(20).toString('hex');
-  const expiresAt = new Date(Date.now() + 3600000 * 4); // 4 hours
+  // Format the expiry date in MySQL format
+  const expiresAt = new Date(Date.now() + 3600000 * 4) // 4 hours
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', ' ');
 
   // 2. Save to database
   await query(
@@ -547,10 +551,16 @@ app.post('/api/auth/reset-token', async (req, res) => {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
   try {
+    // Format the expiry date in MySQL format
+    const formattedExpiresAt = new Date(expiresAt)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+
     // Update the user with the reset token and expiry
     const result = await query(
       'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?',
-      [token, expiresAt, email]
+      [token, formattedExpiresAt, email]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'User not found.' });
@@ -594,54 +604,37 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
 //add subscriber endpoint
 app.post('/api/subscriber', async (req, res) => {
   try {
-    const { fullName, email } = req.body;
+    const { fullName, email, bookId } = req.body;
+    console.log('Received subscriber data:', { fullName, email, bookId }); // Debug log
 
     // Validate input
-    if (!fullName || !email) {
+    if (!fullName || !email || !bookId) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Check if user already exists
-    const [existingUser] = await query(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
+    // Check if subscriber already exists for the book
+    const [existingSubscriber] = await query(
+      'SELECT id FROM subscribers WHERE email = ? AND book_id = ?',
+      [email, bookId]
     );
 
-    if (existingUser) {
-      return res.status(200).json({ message: 'Email already registered', isNew: false });
+    if (existingSubscriber) {
+      return res.status(200).json({ message: 'Email already subscribed to this book', isNew: false });
     }
 
-    // Generate a default password
-    const hashedPassword = await bcrypt.hash("Sub{0|1}", 10);
-
-    // Create new user
-    const userId = uuidv4();
-    const role = false;
+    // Add new subscriber
+    const subscriberId = uuidv4();
     await query(
-      'INSERT INTO users (id, full_name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [userId, fullName, email, hashedPassword, role || 'subscriber']
-    );
-
-    // Get user without password
-    const [newUser] = await query(
-      'SELECT id, full_name, email, role FROM users WHERE id = ?',
-      [userId]
-    );
-
-    // Create token
-    const token = jwt.sign(
-      { userId: newUser.id, role: newUser.role },
-      process.env.JWT_SECRET || 'not-a-secret-key',
-      { expiresIn: '24h' }
+      'INSERT INTO subscribers (id, name, email, book_id, subscribed_at) VALUES (?, ?, ?, ?, NOW())',
+      [subscriberId, fullName, email, bookId]
     );
 
     res.status(201).json({
-      token,
-      user: newUser,
+      message: 'Subscription successful',
       isNew: true
     });
   } catch (err) {
-    console.error('Registration error:', err);
+    console.error('Subscription error:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -789,6 +782,55 @@ app.delete('/api/users/:id', async (req, res) => {
     res.status(204).end();
   } catch (err) {
     console.error('Error deleting user:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Export subscribers for a specific book
+app.get('/api/subscribers/export/:bookId', async (req, res) => {
+  try {
+    const { bookId } = req.params;
+
+    // Fetch subscribers for the book
+    const subscribers = await query(
+      'SELECT name, email, subscribed_at FROM subscribers WHERE book_id = ?',
+      [bookId]
+    );
+
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: 'No subscribers found for this book.' });
+    }
+
+    // Generate CSV content
+    const csvHeaders = 'Name,Email,Subscribed At\n';
+    const csvRows = subscribers.map(sub => `${sub.name},${sub.email},${sub.subscribed_at}`).join('\n');
+    const csvContent = csvHeaders + csvRows;
+
+    // Set response headers for file download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="subscribers_${bookId}.csv"`);
+
+    res.send(csvContent);
+  } catch (err) {
+    console.error('Error fetching subscribers:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get subscriber count for a specific book
+app.get('/api/subscribers/count/:bookId', async (req, res) => {
+  try {
+    const { bookId } = req.params;
+
+    // Query to count subscribers for the book
+    const [result] = await query(
+      'SELECT COUNT(*) as count FROM subscribers WHERE book_id = ?',
+      [bookId]
+    );
+
+    res.json({ count: result.count });
+  } catch (err) {
+    console.error('Error fetching subscriber count:', err);
     res.status(500).json({ error: err.message });
   }
 });

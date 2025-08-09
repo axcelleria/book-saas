@@ -122,6 +122,12 @@ const BookDetail = () => {
     }
   }, []);
 
+  useEffect(() => {
+    // Clear stored email when navigating to a new book
+    setUserEmail(null);
+    setShowEmailForm(true);
+  }, [slug]);
+
   const showRandomBook = () => {
     const randomIndex = Math.floor(Math.random() * books.length);
     setBook(books[randomIndex]);
@@ -138,7 +144,8 @@ const BookDetail = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: name,
-          email
+          email,
+          bookId: book.id  // Add the book ID to the request
         })
       });
 
@@ -200,6 +207,17 @@ const BookDetail = () => {
 
     if (!tosAgreed) {
       M.toast({ html: 'You must agree to the terms of service' });
+      return;
+    }
+
+    if (!name || !email) {
+      M.toast({ html: 'Name and email are required' });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      M.toast({ html: 'Please enter a valid email address' });
       return;
     }
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyBooks } from '../services/bookService';
 import M from 'materialize-css';
 import { Link } from 'react-router-dom';
+import { API_URL }  from '../config/api.js';
 
 const MyBooks = () => {
   const { user } = useAuth();
@@ -10,6 +11,7 @@ const MyBooks = () => {
   const [loading, setLoading] = useState(false);
   const [titleFilter, setTitleFilter] = useState('');
   const [filteredBooks, setFilteredBooks] = useState([]);
+  const subscriberCountsFetched = useRef(false);
 
   useEffect(() => {
     const fetchMyBooks = async () => {
@@ -44,7 +46,7 @@ const MyBooks = () => {
   const handleDelete = async (id) => {
       if (window.confirm('Are you sure you want to delete this book?')) {
         try {
-          const response = await fetch(`http://localhost:3001/api/books/${id}`, {
+          const response = await fetch(`${API_URL}/books/${id}`, {
             method: 'DELETE'
           });
           
@@ -65,7 +67,7 @@ const MyBooks = () => {
 
   const exportSubscribers = async (bookId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/subscribers/export/${bookId}`, {
+      const response = await fetch(`${API_URL}/subscribers/export/${bookId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${user.token}`,
@@ -99,6 +101,44 @@ const MyBooks = () => {
       .replace(/\s+/g, '-')   // Replace spaces with hyphens
       .replace(/-+/g, '-');    // Replace multiple hyphens with single
   };
+
+  const fetchSubscriberCount = async (bookId) => {
+    try {
+      const response = await fetch(`${API_URL}/subscribers/count/${bookId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch subscriber count');
+      }
+      const { count } = await response.json();
+      return count;
+    } catch (error) {
+      console.error('Error fetching subscriber count:', error);
+      return 0;
+    }
+  };
+
+  useEffect(() => {
+    if (subscriberCountsFetched.current) return;
+
+    const updateSubscriberCounts = async () => {
+      try {
+        const updatedBooks = await Promise.all(
+          books.map(async (book) => {
+            const subscriberCount = await fetchSubscriberCount(book.id);
+            return { ...book, subscriberCount };
+          })
+        );
+        setBooks(updatedBooks);
+        setFilteredBooks(updatedBooks);
+        subscriberCountsFetched.current = true;
+      } catch (error) {
+        console.error('Error updating subscriber counts:', error);
+      }
+    };
+
+    if (books.length > 0) {
+      updateSubscriberCounts();
+    }
+  }, [books]);
 
   if (loading) {
     return <div className="center-align">Loading...</div>;
@@ -156,6 +196,9 @@ const MyBooks = () => {
             <th style={{width: "100px" }}>Status</th>
             <th style={{ width: '55px' }}> <i className="material-icons tiny">visibility</i> </th>
             <th style={{ width: '55px' }}> <i className="material-icons tiny">file_download</i> </th>
+            <th style={{ width: '55px' }}>
+              <i className="material-icons tiny">rss_feed</i>
+            </th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -180,7 +223,7 @@ const MyBooks = () => {
                   {book.category || 'Uncategorized'}
                 </span>
               </td>
-              <td>
+              <td style={{ width: "200px" }}>
                 {book.tags &&
                   book.tags.split(',').map((tag) => (
                     <span key={tag} className="chip">
@@ -204,6 +247,7 @@ const MyBooks = () => {
               <td>
                 {book.download_count || 0}
               </td>
+              <td>{book.subscriberCount || 0}</td>
               <td>
                 <Link
                   to={`/edit/${book.id}`}
@@ -226,8 +270,9 @@ const MyBooks = () => {
                   className="btn-small yellow darken-2 waves-effect waves-light tooltipped"
                   onClick={() => handleExportClick(book.id)}
                   data-position="top"
-                  data-tooltip="Export Subscribers"
+                  data-tooltip={book.subscriberCount === 0 ? "No Subscribers to Export" : "Export Subscribers"}
                   style={{ marginLeft: '5px' }}
+                  disabled={book.subscriberCount === 0}
                 >
                   <i className="material-icons">file_download</i>
                 </button>
