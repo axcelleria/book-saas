@@ -762,6 +762,47 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// Export all subscribers (Admin only)
+app.get('/api/subscribers/export-all', async (req, res) => {
+  try {
+    // TODO: Add middleware to check if user is admin
+    
+    // Fetch all subscribers with book details
+    const subscribers = await query(`
+      SELECT 
+        s.name,
+        s.email,
+        s.subscribed_at,
+        b.title as book_title,
+        b.author as book_author,
+        b.category as book_category
+      FROM subscribers s
+      JOIN books b ON s.book_id = b.id
+      ORDER BY s.subscribed_at DESC
+    `);
+
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: 'No subscribers found.' });
+    }
+
+    // Generate CSV content
+    const csvHeaders = 'Name,Email,Subscribed At,Book Title,Book Author,Book Category\n';
+    const csvRows = subscribers.map(sub => 
+      `${sub.name},${sub.email},${sub.subscribed_at},${sub.book_title},${sub.book_author || 'N/A'},${sub.book_category || 'Uncategorized'}`
+    ).join('\n');
+    const csvContent = csvHeaders + csvRows;
+
+    // Set response headers for file download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="all_subscribers_${new Date().toISOString().split('T')[0]}.csv"`);
+
+    res.send(csvContent);
+  } catch (err) {
+    console.error('Error exporting subscribers:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete user and their books
 app.delete('/api/users/:id', async (req, res) => {
   try {
@@ -834,6 +875,34 @@ app.get('/api/subscribers/count/:bookId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Get fetch all unique subscribers with their subscription counts
+app.get('/api/subscribers/summary', async (req, res) => {
+  try {
+    const subscribers = await query(`
+      SELECT 
+        s.id,
+        s.name,
+        s.email,
+        COUNT(DISTINCT s.book_id) as book_count,
+        MAX(s.subscribed_at) as last_subscribed_at
+      FROM subscribers s
+      GROUP BY s.email
+      ORDER BY last_subscribed_at DESC
+    `);
+
+    if (subscribers.length === 0) {
+      return res.status(404).json({ message: 'No subscribers found.' });
+    }
+
+    res.json(subscribers);
+
+  } catch (err) {
+    console.error('Error fetching subscribers', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

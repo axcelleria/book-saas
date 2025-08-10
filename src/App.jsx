@@ -1,26 +1,28 @@
-// import React from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import BookForm from './BookForm';
-import BookList from './BookList';
-import BookDetail from './BookDetail';
-import TrackingManager from './TrackingManager';
-import Terms from './components/Terms';
-import Policy from './components/Policy';
-import Landing from './Landing';
-import SignIn from './components/auth/SignIn';
-import SignUp from './components/auth/SignUp';
-import ForgotPassword from './components/auth/ForgotPassword';
-import ResetPassword from './components/auth/ResetPassword';
-import MyBooks from './components/MyBooks';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
-import Home from './components/Home';
-import Profile from './components/auth/Profile';
-import Users from './components/admin/Users';
-import CategoryManager from './components/admin/CategoryManager';
+
+// Lazy load components
+const BookForm = lazy(() => import('./BookForm'));
+const BookList = lazy(() => import('./BookList'));
+const BookDetail = lazy(() => import('./BookDetail'));
+const TrackingManager = lazy(() => import('./TrackingManager'));
+const Terms = lazy(() => import('./components/Terms'));
+const Policy = lazy(() => import('./components/Policy'));
+const Landing = lazy(() => import('./Landing'));
+const SignIn = lazy(() => import('./components/auth/SignIn'));
+const SignUp = lazy(() => import('./components/auth/SignUp'));
+const ForgotPassword = lazy(() => import('./components/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./components/auth/ResetPassword'));
+const MyBooks = lazy(() => import('./components/MyBooks'));
+const Home = lazy(() => import('./components/Home'));
+const Profile = lazy(() => import('./components/auth/Profile'));
+const Users = lazy(() => import('./components/admin/Users'));
+const CategoryManager = lazy(() => import('./components/admin/CategoryManager'));
 import { useEffect, useState } from 'react';
 import { getActiveTrackingCodes, getTrackingCodeSnippet } from './services/trackingService';
 
@@ -64,7 +66,8 @@ function App() {
           <div className="App">
             <Navbar />
             <div>
-              <Routes>
+              <Suspense fallback={<div className="center-align" style={{ padding: '20px' }}>Loading...</div>} >
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<SignIn />} />
@@ -135,6 +138,7 @@ function App() {
                   }
                 />
               </Routes>
+              </Suspense>
             </div>
             <Footer />
           </div>
